@@ -62,7 +62,11 @@ public class ProviderServer implements Runnable {
 				int articleId = rs.getInt("articleId");
 				String articlePath = rs.getString("articlePath").trim();
 				System.out.println(articleId + "\t" + articlePath);
-				sock.getOutputStream().write((articleId + ": " + (new File(articlePath)).getName() +"\n").getBytes());
+				String fileName = (new File(articlePath)).getName();
+				if(fileName.contains(".")) {
+					fileName = fileName.substring(0, fileName.indexOf("."));
+				}
+				sock.getOutputStream().write((articleId + ": " + fileName +"\n").getBytes());
 			}
 		} 
          con.close();        
