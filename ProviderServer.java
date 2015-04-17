@@ -8,8 +8,7 @@ import java.io.*;
 
 public class ProviderServer implements Runnable {
    Socket sock= null;
-   String articleId;
-   String ARTICLE_QUERY = "SELECT articlePath FROM content WHERE articleId = "+articleId;
+
    String user;
    String pass;
 
@@ -23,27 +22,50 @@ public class ProviderServer implements Runnable {
       try {
          BufferedReader in = new BufferedReader(new InputStreamReader(sock.getInputStream()));
          String request = in.readLine();
+		 if(request == null) {
+			sock.getOutputStream().write("Request failed, inadequate arguments".getBytes());
+			return;
+		 }
          System.out.println(request);
-         String query = makeQuery(request);
+		 
+		 String query= null;
+		 try {
+		 	query = makeArticleQuery(Integer.parseInt(request));
+		 }
+		 catch(NumberFormatException e){
+		 			query = makeContentQuery(request);
+		}
          System.out.println(query);
 
          Class.forName("com.mysql.jdbc.Driver").newInstance();
          Connection con = DriverManager.getConnection("jdbc:mysql://cs.okstate.edu:3306/"+user, user, pass);
 
          ResultSet rs = con.createStatement().executeQuery(query);
-         rs.next();
-         String _articlePath = rs.getString("articlePath").trim();
-         System.out.println(articleId + "\t" + _articlePath);
-
-         con.close();
-
-         FileInputStream fis = new FileInputStream(new File(_articlePath));
-         byte[] buffer = new byte[1024];
-         int bytes=-1;
-         while((bytes=fis.read(buffer)) != -1) {
-            System.out.println(new String(buffer));
-            sock.getOutputStream().write(buffer);
-         }
+		 
+		 try {
+			Integer.parseInt(request);
+			if(rs.next()==true) {
+				 String articlePath = rs.getString("articlePath").trim();
+				 FileInputStream fis = new FileInputStream(new File(articlePath));
+				 byte[] buffer = new byte[1024];
+				 int bytes=-1;
+				 while((bytes=fis.read(buffer)) != -1) {
+					System.out.println(new String(buffer));
+					sock.getOutputStream().write(buffer);
+				 }
+			} else {
+				sock.getOutputStream().write("Cannot retrieve file".getBytes());
+			}
+		}
+		 catch(NumberFormatException e){
+			 while(rs.next()) {
+				int articleId = rs.getInt("articleId");
+				String articlePath = rs.getString("articlePath").trim();
+				System.out.println(articleId + "\t" + articlePath);
+				sock.getOutputStream().write((articleId + "\t" + articlePath).getBytes());
+			}
+		} 
+         con.close();        
       } catch (Exception e) {
          e.printStackTrace();
       } finally {
@@ -56,11 +78,15 @@ public class ProviderServer implements Runnable {
       }
    }
 
-   private String makeQuery(String request) {
-      //String[] fields = request.split(",");
-      articleId = request; //fields[0];
-      ARTICLE_QUERY = "SELECT articlePath FROM content WHERE articleId = " + articleId;
-      return ARTICLE_QUERY;
+   private String makeArticleQuery(int request) {
+      int articleId = request; 
+      String query = "SELECT articlePath FROM content WHERE articleId = " + articleId;
+      return query;
+   }
+   
+   private String makeContentQuery(String request) {
+      String query = "SELECT * FROM content";
+      return query;
    }
 
    public static void main(String[] args) {
