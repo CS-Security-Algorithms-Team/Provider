@@ -1,8 +1,5 @@
 import java.net.*;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.io.*;
 
 
@@ -28,19 +25,19 @@ public class ProviderServer implements Runnable {
 		 }
          System.out.println(request);
 		 
-		 String query= null;
+         Class.forName("com.mysql.jdbc.Driver").newInstance();
+         Connection con = DriverManager.getConnection("jdbc:mysql://cs.okstate.edu:3306/"+user, user, pass);
+		 
+		 PreparedStatement query= null;
 		 try {
-		 	query = makeArticleQuery(Integer.parseInt(request));
+		 	query = makeArticleQuery(Integer.parseInt(request), con);
 		 }
 		 catch(NumberFormatException e){
-		 			query = makeContentQuery(request);
+		 	query = makeContentQuery(con);
 		}
          System.out.println(query);
 
-         Class.forName("com.mysql.jdbc.Driver").newInstance();
-         Connection con = DriverManager.getConnection("jdbc:mysql://cs.okstate.edu:3306/"+user, user, pass);
-
-         ResultSet rs = con.createStatement().executeQuery(query);
+         ResultSet rs = query.executeQuery();
 		 
 		 try {
 			Integer.parseInt(request);
@@ -82,15 +79,16 @@ public class ProviderServer implements Runnable {
       }
    }
 
-   private String makeArticleQuery(int request) {
+   private PreparedStatement makeArticleQuery(int request,Connection con) throws SQLException {
       int articleId = request; 
-      String query = "SELECT articlePath FROM content WHERE articleId = " + articleId;
-      return query;
+	  PreparedStatement prep = con.prepareStatement("SELECT articlePath FROM content WHERE articleId = ?");
+	  prep.setInt(1, articleId);
+      return prep;
    }
    
-   private String makeContentQuery(String request) {
-      String query = "SELECT * FROM content";
-      return query;
+   private PreparedStatement makeContentQuery(Connection con) throws SQLException{
+      PreparedStatement prep = con.prepareStatement("SELECT * FROM content");
+      return prep;
    }
 
    public static void main(String[] args) {
